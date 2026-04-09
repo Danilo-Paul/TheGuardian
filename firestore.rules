@@ -103,7 +103,11 @@ service cloud.firestore {
              data.type in ['income', 'expense'] &&
              data.categoryId is string &&
              isValidDateString(data.date) &&
-             (!('paymentMethod' in data) || data.paymentMethod in ['dinheiro', 'pix', 'credito', 'debito', 'cheque', 'cortesia']) &&
+             (!('paymentMethod' in data) || data.paymentMethod == null || data.paymentMethod in ['dinheiro', 'pix', 'credito', 'debito', 'cheque', 'cortesia']) &&
+             (!('note' in data) || data.note == null || data.note is string) &&
+             (!('goalId' in data) || data.goalId == null || data.goalId is string) &&
+             (!('cardId' in data) || data.cardId == null || data.cardId is string) &&
+             (!('installments' in data) || data.installments == null || data.installments is number) &&
              data.userId == request.auth.uid;
     }
 
@@ -113,8 +117,12 @@ service cloud.firestore {
              data.type is string &&
              data.value is number && data.value > 0 &&
              data.status in ['rented', 'vacant', 'maintenance'] &&
-             (!('leaseStart' in data) || isValidDateString(data.leaseStart)) &&
-             (!('leaseEnd' in data) || isValidDateString(data.leaseEnd)) &&
+             (!('leaseStart' in data) || data.leaseStart == null || data.leaseStart == "" || isValidDateString(data.leaseStart)) &&
+             (!('leaseEnd' in data) || data.leaseEnd == null || data.leaseEnd == "" || isValidDateString(data.leaseEnd)) &&
+             (!('rentalValue' in data) || data.rentalValue == null || data.rentalValue is number) &&
+             (!('tenantName' in data) || data.tenantName == null || data.tenantName is string) &&
+             (!('correctionIndex' in data) || data.correctionIndex == null || data.correctionIndex is string) &&
+             (!('rentDueDate' in data) || data.rentDueDate == null || data.rentDueDate is number) &&
              data.userId == request.auth.uid;
     }
 
@@ -122,9 +130,10 @@ service cloud.firestore {
       return data.title is string && data.title.size() > 0 && data.title.size() < 100 &&
              data.targetAmount is number && data.targetAmount > 0 &&
              data.currentAmount is number && data.currentAmount >= 0 &&
-             data.targetMonths is number && data.targetMonths > 0 &&
-             data.monthlyContribution is number &&
-             isValidDateString(data.startDate) &&
+             isValidDateString(data.deadline) &&
+             (!('targetMonths' in data) || data.targetMonths == null || (data.targetMonths is number && data.targetMonths > 0)) &&
+             (!('monthlyContribution' in data) || data.monthlyContribution == null || data.monthlyContribution is number) &&
+             (!('startDate' in data) || data.startDate == null || data.startDate == "" || isValidDateString(data.startDate)) &&
              (!('indexId' in data) || (data.indexId is string || data.indexId == null)) &&
              (!('indexPercentage' in data) || (data.indexPercentage is number || data.indexPercentage == null)) &&
              data.userId == request.auth.uid;

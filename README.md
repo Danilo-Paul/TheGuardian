@@ -60,3 +60,4 @@ Fique à vontade para entrar em contato para sugestões, parcerias ou dúvidas:
 1. Instale as dependências:
    ```bash
    npm install
+   npm run dev

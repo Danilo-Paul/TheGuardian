@@ -79,16 +79,19 @@ import { getFinancialAdvice } from './services/geminiService';
 // --- Utilities ---
 
 const roundABNT = (num: number, precision: number = 2): number => {
+  if (num === null || num === undefined || isNaN(num)) return 0;
+  
   const multiplier = Math.pow(10, precision);
-  const val = num * multiplier;
-  const integer = Math.floor(val);
-  const fraction = val - integer;
+  // Use toFixed to stabilize the number and avoid floating point issues like 0.2999999999999999
+  const stabilizedVal = Number((num * multiplier).toFixed(8));
+  const integer = Math.floor(stabilizedVal);
+  const fraction = stabilizedVal - integer;
 
   // ABNT NBR 5891: Round half to even
   if (Math.abs(fraction - 0.5) < 1e-10) {
     return (integer % 2 === 0 ? integer : integer + 1) / multiplier;
   }
-  return Math.round(val) / multiplier;
+  return Math.round(stabilizedVal) / multiplier;
 };
 
 // --- Firebase Error Handling ---
@@ -1962,6 +1965,8 @@ const AddGoal = ({ onSave, initialData, indices }: { onSave: (g: FinancialGoal) 
     e.preventDefault();
     await onSave({
       ...formData,
+      targetAmount: roundABNT(formData.targetAmount || 0),
+      currentAmount: roundABNT(formData.currentAmount || 0),
       id: formData.id || Math.random().toString(36).substr(2, 9),
     } as FinancialGoal);
     navigate('/metas');
@@ -1995,7 +2000,7 @@ const AddGoal = ({ onSave, initialData, indices }: { onSave: (g: FinancialGoal) 
             <input 
               type="number" 
               value={formData.targetAmount || ''}
-              onChange={(e) => setFormData({...formData, targetAmount: roundABNT(parseFloat(e.target.value))})}
+              onChange={(e) => setFormData({...formData, targetAmount: parseFloat(e.target.value)})}
               placeholder="0,00" 
               className="w-full p-5 bg-surface-container-low rounded-2xl border-none text-xl font-bold"
               required
@@ -2006,7 +2011,7 @@ const AddGoal = ({ onSave, initialData, indices }: { onSave: (g: FinancialGoal) 
             <input 
               type="number" 
               value={formData.currentAmount || ''}
-              onChange={(e) => setFormData({...formData, currentAmount: roundABNT(parseFloat(e.target.value))})}
+              onChange={(e) => setFormData({...formData, currentAmount: parseFloat(e.target.value)})}
               placeholder="0,00" 
               className="w-full p-5 bg-surface-container-low rounded-2xl border-none text-xl font-bold text-brand-primary"
             />
@@ -2235,22 +2240,74 @@ const AnalyticsView = ({
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
 
-  const getFilteredTransactions = () => {
-    return transactions.filter(t => {
-      const txDate = new Date(t.date);
-      if (timeFilter === 'mes') {
-        return txDate.getMonth() === selectedMonth && txDate.getFullYear() === selectedYear;
-      }
-      return txDate.getFullYear() === selectedYear;
+  const getFilteredData = (month: number, year: number) => {
+    const selectedMonthStr = `${year}-${String(month + 1).padStart(2, '0')}`;
+    
+    // 1. Non-credit transactions (including goals as requested)
+    const nonCredit = transactions.filter(t => {
+      if (t.paymentMethod === 'credito') return false;
+      const d = new Date(t.date + 'T12:00:00');
+      return d.getMonth() === month && d.getFullYear() === year;
     });
+    
+    // 2. Credit card installments for this month
+    const ccAmount = creditCardInstallments
+      .filter(inst => inst.dueDate.startsWith(selectedMonthStr))
+      .reduce((acc, inst) => acc + inst.amount, 0);
+      
+    const ccExpense = ccAmount > 0 ? [{
+      id: `cc_${selectedMonthStr}`,
+      amount: roundABNT(ccAmount),
+      type: 'expense' as const,
+      date: `${selectedMonthStr}-01`
+    }] : [];
+
+    return [...nonCredit, ...ccExpense];
   };
 
-  const filteredTxs = getFilteredTransactions();
-  const income = filteredTxs.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
-  const expense = filteredTxs.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
+  const filteredTxs = getFilteredData(selectedMonth, selectedYear);
+
+  const getYearlyData = (year: number) => {
+    let yearlyIncome = 0;
+    let yearlyExpense = 0;
+    const yearlyPaymentBreakdown = new Map<string, number>();
+    
+    for (let m = 0; m < 12; m++) {
+      const monthData = getFilteredData(m, year);
+      yearlyIncome += monthData.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
+      yearlyExpense += monthData.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
+      
+      monthData.forEach(t => {
+        const pmId = (t as any).id?.startsWith('cc_') ? 'credito' : (t as any).paymentMethod;
+        if (pmId) {
+          yearlyPaymentBreakdown.set(pmId, (yearlyPaymentBreakdown.get(pmId) || 0) + t.amount);
+        }
+      });
+    }
+    
+    return { income: yearlyIncome, expense: yearlyExpense, paymentBreakdown: yearlyPaymentBreakdown };
+  };
+
+  const currentSummary = timeFilter === 'mes' 
+    ? {
+        income: filteredTxs.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0),
+        expense: filteredTxs.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0),
+        paymentBreakdown: (() => {
+          const m = new Map<string, number>();
+          filteredTxs.forEach(t => {
+            const pmId = (t as any).id?.startsWith('cc_') ? 'credito' : (t as any).paymentMethod;
+            if (pmId) m.set(pmId, (m.get(pmId) || 0) + t.amount);
+          });
+          return m;
+        })()
+      }
+    : getYearlyData(selectedYear);
+
+  const income = currentSummary.income;
+  const expense = currentSummary.expense;
   const profit = income - expense;
 
-  const paymentBreakdown = [
+  const displayPaymentBreakdown = [
     { label: 'Dinheiro', id: 'dinheiro', icon: Wallet },
     { label: 'PIX / Transferência', id: 'pix', icon: Building2 },
     { label: 'Cartão de Crédito', id: 'credito', icon: Tag },
@@ -2258,7 +2315,7 @@ const AnalyticsView = ({
     { label: 'Cheque', id: 'cheque', icon: Calculator },
     { label: 'Cortesia', id: 'cortesia', icon: PlusCircle },
   ].map(pm => {
-    const amount = filteredTxs.filter(t => t.paymentMethod === pm.id).reduce((acc, t) => acc + t.amount, 0);
+    const amount = currentSummary.paymentBreakdown.get(pm.id) || 0;
     const percentage = income > 0 ? (amount / income) * 100 : 0;
     return { ...pm, amount, percentage };
   });
@@ -2269,14 +2326,11 @@ const AnalyticsView = ({
       for (let m = 0; m < 12; m++) {
         const d = new Date(selectedYear, m, 1);
         const monthName = d.toLocaleDateString('pt-BR', { month: 'short' });
-        const monthTxs = transactions.filter(t => {
-          const txDate = new Date(t.date);
-          return txDate.getMonth() === m && txDate.getFullYear() === selectedYear;
-        });
+        const monthData = getFilteredData(m, selectedYear);
         data.push({
           name: monthName,
-          receita: monthTxs.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0),
-          despesa: monthTxs.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0)
+          receita: monthData.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0),
+          despesa: monthData.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0)
         });
       }
     } else {
@@ -2284,14 +2338,11 @@ const AnalyticsView = ({
       for (let i = 5; i >= 0; i--) {
         const d = new Date(selectedYear, selectedMonth - i, 1);
         const monthName = d.toLocaleDateString('pt-BR', { month: 'short' });
-        const monthTxs = transactions.filter(t => {
-          const txDate = new Date(t.date);
-          return txDate.getMonth() === d.getMonth() && txDate.getFullYear() === d.getFullYear();
-        });
+        const monthData = getFilteredData(d.getMonth(), d.getFullYear());
         data.push({
           name: monthName,
-          receita: monthTxs.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0),
-          despesa: monthTxs.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0)
+          receita: monthData.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0),
+          despesa: monthData.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0)
         });
       }
     }
@@ -2386,7 +2437,7 @@ const AnalyticsView = ({
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-6 gap-4 pt-8 border-t border-outline/10">
-          {paymentBreakdown.map(pm => {
+          {displayPaymentBreakdown.map(pm => {
             const Icon = pm.icon;
             return (
               <div key={pm.id} className="text-center space-y-1">
@@ -2652,6 +2703,8 @@ const AddProperty = ({ onSave, initialData, indices }: { onSave: (p: Property) =
     e.preventDefault();
     await onSave({
       ...formData,
+      value: roundABNT(formData.value || 0),
+      rentalValue: roundABNT(formData.rentalValue || 0),
       id: formData.id || Math.random().toString(36).substr(2, 9),
     } as Property);
     navigate('/patrimonio');
@@ -2712,7 +2765,7 @@ const AddProperty = ({ onSave, initialData, indices }: { onSave: (p: Property) =
             <input 
               type="number" 
               value={formData.value || ''}
-              onChange={(e) => setFormData({...formData, value: roundABNT(parseFloat(e.target.value))})}
+              onChange={(e) => setFormData({...formData, value: parseFloat(e.target.value)})}
               placeholder="R$ 0,00" 
               className="w-full p-5 bg-surface-container-low rounded-2xl border-none text-xl font-bold"
               required
@@ -2743,7 +2796,7 @@ const AddProperty = ({ onSave, initialData, indices }: { onSave: (p: Property) =
               <input 
                 type="number" 
                 value={formData.rentalValue || ''}
-                onChange={(e) => setFormData({...formData, rentalValue: roundABNT(parseFloat(e.target.value))})}
+                onChange={(e) => setFormData({...formData, rentalValue: parseFloat(e.target.value)})}
                 placeholder="R$ 0,00" 
                 className="w-full p-5 bg-surface-container-low rounded-2xl border-none text-xl font-bold text-green-600"
               />
@@ -3222,7 +3275,7 @@ const App = () => {
             const newAmount = tx.type === 'income' 
               ? goal.currentAmount + tx.amount 
               : goal.currentAmount - tx.amount;
-            await updateDoc(doc(db, 'goals', goal.id), { currentAmount: Math.max(0, newAmount) });
+            await updateDoc(doc(db, 'goals', goal.id), { currentAmount: Math.max(0, roundABNT(newAmount)) });
           }
         }
       }

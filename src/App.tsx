@@ -498,6 +498,86 @@ const IntroductionView = () => {
   );
 };
 
+const EditRentalInstallmentModal = ({ 
+  installment, 
+  onClose, 
+  onSave 
+}: { 
+  installment: RentalInstallment, 
+  onClose: () => void, 
+  onSave: (inst: RentalInstallment) => void 
+}) => {
+  const [amount, setAmount] = useState(installment.amount);
+  const [dueDate, setDueDate] = useState(installment.dueDate);
+  const [status, setStatus] = useState(installment.status);
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="bg-surface-container-lowest p-8 rounded-[2.5rem] shadow-2xl w-full max-w-md border border-outline/5 space-y-6"
+      >
+        <div className="flex justify-between items-center">
+          <h3 className="text-xl font-bold">Editar Parcela</h3>
+          <button onClick={onClose} className="p-2 hover:bg-surface-container-low rounded-xl">
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-xs font-bold uppercase text-on-surface-variant ml-2">Valor</label>
+            <input 
+              type="number" 
+              step="0.01"
+              value={amount}
+              onChange={(e) => setAmount(Number(e.target.value))}
+              className="w-full p-4 bg-surface-container-low rounded-2xl border border-outline/10 focus:ring-2 focus:ring-brand-primary"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs font-bold uppercase text-on-surface-variant ml-2">Vencimento</label>
+            <input 
+              type="date" 
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              className="w-full p-4 bg-surface-container-low rounded-2xl border border-outline/10 focus:ring-2 focus:ring-brand-primary"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs font-bold uppercase text-on-surface-variant ml-2">Status</label>
+            <select 
+              value={status}
+              onChange={(e) => setStatus(e.target.value as any)}
+              className="w-full p-4 bg-surface-container-low rounded-2xl border border-outline/10 focus:ring-2 focus:ring-brand-primary"
+            >
+              <option value="upcoming">A Vencer</option>
+              <option value="pending">Pendente / Atrasada</option>
+              <option value="paid">Pago</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="flex gap-4 pt-4">
+          <button 
+            onClick={onClose}
+            className="flex-1 py-4 bg-surface-container-high text-on-surface rounded-2xl font-bold"
+          >
+            Cancelar
+          </button>
+          <button 
+            onClick={() => onSave({ ...installment, amount: roundABNT(amount), dueDate, status })}
+            className="flex-1 py-4 bg-brand-primary text-white rounded-2xl font-bold shadow-lg"
+          >
+            Salvar
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
 const Navbar = () => {
   const location = useLocation();
   const { signOut } = useAuth();
@@ -913,6 +993,8 @@ const AssetsView = ({
   onMarkPaid, 
   onAddExpense,
   onGenerateInstallments,
+  onDeleteInstallment,
+  onEditInstallment,
   marketIndices
 }: { 
   properties: Property[], 
@@ -923,6 +1005,8 @@ const AssetsView = ({
   onMarkPaid: (inst: RentalInstallment, paymentDate?: string) => void,
   onAddExpense: (exp: PropertyExpense) => void,
   onGenerateInstallments: (p: Property) => void,
+  onDeleteInstallment: (id: string) => void,
+  onEditInstallment: (inst: RentalInstallment) => void,
   marketIndices: MarketIndex[]
 }) => {
   const [expandedProperty, setExpandedProperty] = useState<string | null>(null);
@@ -1197,8 +1281,24 @@ const AssetsView = ({
                                     </div>
                                   </div>
                                   <div className="flex items-center gap-6">
+                                    <div className="flex items-center gap-2">
+                                      <button 
+                                        onClick={() => onEditInstallment(inst)}
+                                        className="p-2 text-brand-primary hover:bg-primary-fixed/10 rounded-xl transition-all"
+                                        title="Editar Parcela"
+                                      >
+                                        <Settings className="w-4 h-4" />
+                                      </button>
+                                      <button 
+                                        onClick={() => onDeleteInstallment(inst.id)}
+                                        className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
+                                        title="Excluir Parcela"
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                      </button>
+                                    </div>
                                     <p className="font-bold text-lg">R$ {inst.amount.toLocaleString()}</p>
-                                    {inst.status !== 'paid' && (
+                                    {inst.status !== 'paid' ? (
                                       <div className="flex flex-col items-end gap-2">
                                         {payingInstallmentId === inst.id ? (
                                           <div className="flex flex-col gap-2 bg-surface-container-lowest p-3 rounded-xl border border-outline/10 shadow-lg animate-in fade-in zoom-in-95 duration-200">
@@ -1249,6 +1349,15 @@ const AssetsView = ({
                                             </button>
                                           </div>
                                         )}
+                                      </div>
+                                    ) : (
+                                      <div className="flex items-center gap-2">
+                                        <button 
+                                          onClick={() => onMarkPaid({ ...inst, status: 'upcoming', paymentDate: null } as any)}
+                                          className="px-4 py-2 bg-surface-container-highest text-on-surface rounded-xl text-xs font-bold shadow-sm hover:bg-outline/10 transition-all"
+                                        >
+                                          Estornar Baixa
+                                        </button>
                                       </div>
                                     )}
                                   </div>
@@ -2251,18 +2360,17 @@ const AnalyticsView = ({
     });
     
     // 2. Credit card installments for this month
-    const ccAmount = creditCardInstallments
+    const ccInstallmentsThisMonth = creditCardInstallments
       .filter(inst => inst.dueDate.startsWith(selectedMonthStr))
-      .reduce((acc, inst) => acc + inst.amount, 0);
-      
-    const ccExpense = ccAmount > 0 ? [{
-      id: `cc_${selectedMonthStr}`,
-      amount: roundABNT(ccAmount),
-      type: 'expense' as const,
-      date: `${selectedMonthStr}-01`
-    }] : [];
+      .map(inst => ({
+        ...inst,
+        id: `cc_${inst.id}`,
+        type: 'expense' as const,
+        date: inst.dueDate,
+        paymentMethod: 'credito'
+      }));
 
-    return [...nonCredit, ...ccExpense];
+    return [...nonCredit, ...ccInstallmentsThisMonth];
   };
 
   const filteredTxs = getFilteredData(selectedMonth, selectedYear);
@@ -2475,6 +2583,9 @@ const AnalyticsView = ({
                 const projectedIncome = installments
                   .filter(inst => {
                     if (inst.status === 'paid') return false;
+                    // Filter out installments for deleted properties
+                    if (!properties.some(p => p.id === inst.propertyId)) return false;
+                    
                     if (i === 0) {
                       // No primeiro mês da projeção, inclui tudo que está pendente ou em atraso
                       return inst.dueDate <= monthKey + '-31';
@@ -2522,7 +2633,7 @@ const AnalyticsView = ({
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-medium">Total Previsto (Entradas)</span>
                   <span className="font-bold text-green-600">
-                    R$ {installments.filter(i => i.status !== 'paid').reduce((acc, i) => acc + i.amount, 0).toLocaleString()}
+                    R$ {installments.filter(i => i.status !== 'paid' && properties.some(p => p.id === i.propertyId)).reduce((acc, i) => acc + i.amount, 0).toLocaleString()}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
@@ -2534,7 +2645,7 @@ const AnalyticsView = ({
                 <div className="pt-4 border-t border-outline/10 flex justify-between items-center">
                   <span className="font-bold">Saldo Projetado</span>
                   <span className="text-2xl font-bold text-brand-primary">
-                    R$ {(installments.filter(i => i.status !== 'paid').reduce((acc, i) => acc + i.amount, 0) - creditCardInstallments.reduce((acc, i) => acc + i.amount, 0)).toLocaleString()}
+                    R$ {(installments.filter(i => i.status !== 'paid' && properties.some(p => p.id === i.propertyId)).reduce((acc, i) => acc + i.amount, 0) - creditCardInstallments.reduce((acc, i) => acc + i.amount, 0)).toLocaleString()}
                   </span>
                 </div>
               </div>
@@ -2573,29 +2684,75 @@ const AnalyticsView = ({
               </p>
               <p className="text-xl font-bold text-red-500">R$ {worstMonth.receita.toLocaleString('pt-BR')}</p>
             </div>
-            <div className="text-right">
-              <p className="text-xs font-bold text-on-surface-variant flex items-center justify-end gap-1">
-                <span className="w-3 h-0.5 bg-brand-primary" /> Ganho Médio
-              </p>
-              <p className="text-xl font-bold text-brand-primary">R$ {avgIncome.toLocaleString('pt-BR')}</p>
-            </div>
           </div>
         </div>
 
-        <div className="h-[300px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={historyData}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-              <XAxis dataKey="name" axisLine={false} tickLine={false} />
-              <YAxis axisLine={false} tickLine={false} tickFormatter={(v) => `R$ ${v/1000}k`} />
-              <Tooltip 
-                cursor={{ fill: 'rgba(0,0,0,0.02)' }}
-                contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-              />
-              <Bar dataKey="receita" fill="#10B981" radius={[4, 4, 0, 0]} barSize={40} />
-              <Bar dataKey="despesa" fill="#EF4444" radius={[4, 4, 0, 0]} barSize={40} />
-            </BarChart>
-          </ResponsiveContainer>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+          <div className="lg:col-span-2 h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={historyData}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} />
+                <YAxis axisLine={false} tickLine={false} tickFormatter={(v) => `R$ ${v/1000}k`} />
+                <Tooltip 
+                  cursor={{ fill: 'rgba(0,0,0,0.02)' }}
+                  contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                />
+                <Bar dataKey="receita" fill="#10B981" radius={[4, 4, 0, 0]} barSize={40} />
+                <Bar dataKey="despesa" fill="#EF4444" radius={[4, 4, 0, 0]} barSize={40} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          
+          <div className="space-y-4">
+            <h4 className="font-bold text-xs uppercase tracking-widest text-on-surface-variant">Detalhamento do Período</h4>
+            <div className="space-y-3">
+              <div className="p-4 bg-surface-container-low rounded-2xl">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-xs font-bold text-green-600 uppercase">Entradas</span>
+                  <span className="text-xs font-bold">{filteredTxs.filter(t => t.type === 'income').length} itens</span>
+                </div>
+                <div className="space-y-2">
+                  {Array.from(new Set(filteredTxs.filter(t => t.type === 'income').map(t => t.categoryId))).map(catId => {
+                    const catTxs = filteredTxs.filter(t => t.type === 'income' && t.categoryId === catId);
+                    const amount = catTxs.reduce((acc, t) => acc + t.amount, 0);
+                    const count = catTxs.length;
+                    return (
+                      <div key={catId} className="flex justify-between text-sm">
+                        <span className="text-on-surface-variant capitalize">{catId} <span className="text-[10px] opacity-60">({count})</span></span>
+                        <span className="font-bold">R$ {amount.toLocaleString()}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              
+              <div className="p-4 bg-surface-container-low rounded-2xl">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-xs font-bold text-red-600 uppercase">Saídas</span>
+                  <span className="text-xs font-bold">{filteredTxs.filter(t => t.type === 'expense').length} itens</span>
+                </div>
+                <div className="space-y-2">
+                  {Array.from(new Set(filteredTxs.filter(t => t.type === 'expense').map(t => t.categoryId))).map(catId => {
+                    const catTxs = filteredTxs.filter(t => t.type === 'expense' && t.categoryId === catId);
+                    const amount = catTxs.reduce((acc, t) => acc + t.amount, 0);
+                    const count = catTxs.length;
+                    const hasCC = catTxs.some(t => (t as any).id?.startsWith('cc_'));
+                    
+                    return (
+                      <div key={catId} className="flex justify-between text-sm">
+                        <span className="text-on-surface-variant capitalize">
+                          {catId} <span className="text-[10px] opacity-60">({count})</span>
+                          {hasCC && <span className="ml-1 text-[8px] bg-brand-primary/10 text-brand-primary px-1 rounded">CC</span>}
+                        </span>
+                        <span className="font-bold">R$ {amount.toLocaleString()}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -3143,6 +3300,7 @@ const App = () => {
   const [editingGoal, setEditingGoal] = useState<FinancialGoal | null>(null);
   const [editingCard, setEditingCard] = useState<CreditCard | null>(null);
   const [editingIndex, setEditingIndex] = useState<MarketIndex | null>(null);
+  const [editingRentalInstallment, setEditingRentalInstallment] = useState<RentalInstallment | null>(null);
 
   const [extratoMonth, setExtratoMonth] = useState<number>(new Date().getMonth());
   const [extratoYear, setExtratoYear] = useState<number>(new Date().getFullYear());
@@ -3315,8 +3473,33 @@ const App = () => {
   const deleteProperty = async (id: string) => {
     try {
       await deleteDoc(doc(db, 'properties', id));
+      
+      // Delete associated installments
+      const propInstallments = installments.filter(i => i.propertyId === id);
+      for (const inst of propInstallments) {
+        await deleteDoc(doc(db, 'rental_installments', inst.id));
+      }
+
+      // Delete associated expenses
+      const propExpenses = propertyExpenses.filter(e => e.propertyId === id);
+      for (const exp of propExpenses) {
+        await deleteDoc(doc(db, 'property_expenses', exp.id));
+      }
+      
+      showToast('Imóvel e dados associados excluídos com sucesso!');
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, 'properties');
+      showToast('Erro ao excluir imóvel.', 'error');
+    }
+  };
+
+  const deleteRentalInstallment = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'rental_installments', id));
+      showToast('Parcela excluída com sucesso!');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, 'rental_installments');
+      showToast('Erro ao excluir parcela.', 'error');
     }
   };
 
@@ -3505,7 +3688,7 @@ const App = () => {
     const day = date.getDate();
 
     // If purchase is after closing day, it goes to the next invoice cycle
-    if (day > closingDay) {
+    if (day >= closingDay) {
       month++;
     }
 
@@ -3700,6 +3883,8 @@ const App = () => {
             onMarkPaid={markInstallmentAsPaid}
             onAddExpense={savePropertyExpense}
             onGenerateInstallments={generateInstallments}
+            onDeleteInstallment={deleteRentalInstallment}
+            onEditInstallment={(inst) => setEditingRentalInstallment(inst)}
             marketIndices={marketIndices}
           /> : <Navigate to="/login" />} />
           <Route path="/metas" element={user ? <GoalsView goals={goals} onDelete={deleteGoal} onEdit={(g) => { setEditingGoal(g); navigate('/adicionar/meta'); }} indices={marketIndices} /> : <Navigate to="/login" />} />
@@ -3721,6 +3906,17 @@ const App = () => {
       </main>
 
       <AnimatePresence>
+        {editingRentalInstallment && (
+          <EditRentalInstallmentModal 
+            installment={editingRentalInstallment}
+            onClose={() => setEditingRentalInstallment(null)}
+            onSave={async (inst) => {
+              await saveInstallment(inst);
+              setEditingRentalInstallment(null);
+              showToast('Parcela atualizada com sucesso!');
+            }}
+          />
+        )}
         {toast && (
           <motion.div
             initial={{ opacity: 0, y: 50, scale: 0.9 }}

@@ -76,6 +76,21 @@ import { cn } from './lib/utils';
 import { Transaction, CATEGORIES, TransactionType, Property, MARKET_INDICES, FinancialGoal, RentalInstallment, PropertyExpense, CreditCard, CreditCardInstallment, MarketIndex } from './types';
 import { getFinancialAdvice } from './services/geminiService';
 
+// --- Utilities ---
+
+const roundABNT = (num: number, precision: number = 2): number => {
+  const multiplier = Math.pow(10, precision);
+  const val = num * multiplier;
+  const integer = Math.floor(val);
+  const fraction = val - integer;
+
+  // ABNT NBR 5891: Round half to even
+  if (Math.abs(fraction - 0.5) < 1e-10) {
+    return (integer % 2 === 0 ? integer : integer + 1) / multiplier;
+  }
+  return Math.round(val) / multiplier;
+};
+
 // --- Firebase Error Handling ---
 
 enum OperationType {
@@ -454,22 +469,27 @@ const IntroductionView = () => {
         <h2 className="text-headline-medium font-bold">Acesso Gratuito e Universal</h2>
         <p className="text-lg opacity-90">
           O The Guardian nasceu com o propósito de democratizar a gestão financeira de alto nível. 
-          Por isso, o software será disponibilizado de forma **totalmente gratuita** para todas as pessoas que desejarem organizar sua vida financeira.
+          Por isso, o software será disponibilizado de forma <span className="font-bold">totalmente gratuita</span> para todas as pessoas que desejarem organizar sua vida financeira.
         </p>
       </div>
 
       <footer className="text-center space-y-4 pt-12 border-t border-outline/10">
         <p className="text-on-surface-variant font-medium">Desenvolvido com dedicação por</p>
-        <h3 className="text-2xl font-bold text-brand-primary">Danilo Paul</h3>
-        <a 
-          href="https://www.linkedin.com/in/danilopaul" 
-          target="_blank" 
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 px-6 py-3 bg-[#0077b5] text-white rounded-2xl font-bold hover:opacity-90 transition-all"
-        >
-          <Linkedin className="w-5 h-5" />
-          Conectar no LinkedIn
-        </a>
+        <div className="space-y-1">
+          <h3 className="text-2xl font-bold text-brand-primary">Danilo Paul</h3>
+          <p className="text-on-surface-variant text-sm font-medium">danilopaul98@gmail.com</p>
+        </div>
+        <div className="flex justify-center gap-4">
+          <a 
+            href="https://www.linkedin.com/in/danilopaul" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-[#0077b5] text-white rounded-2xl font-bold hover:opacity-90 transition-all"
+          >
+            <Linkedin className="w-5 h-5" />
+            Conectar no LinkedIn
+          </a>
+        </div>
       </footer>
     </div>
   );
@@ -495,7 +515,7 @@ const Navbar = () => {
   return (
     <>
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex flex-col fixed left-0 top-0 bottom-0 w-72 bg-surface-container-lowest border-r border-outline/10 p-8 z-50">
+      <aside className="hidden md:flex flex-col fixed left-0 top-0 bottom-0 w-72 bg-surface-container-lowest border-r border-outline/10 p-8 z-50 overflow-y-auto">
         <div className="flex items-center gap-3 text-brand-primary font-bold text-2xl mb-12">
           <div className="p-2 bg-primary-fixed/30 rounded-2xl">
             <ShieldCheck className="w-8 h-8" />
@@ -1975,7 +1995,7 @@ const AddGoal = ({ onSave, initialData, indices }: { onSave: (g: FinancialGoal) 
             <input 
               type="number" 
               value={formData.targetAmount || ''}
-              onChange={(e) => setFormData({...formData, targetAmount: parseFloat(e.target.value)})}
+              onChange={(e) => setFormData({...formData, targetAmount: roundABNT(parseFloat(e.target.value))})}
               placeholder="0,00" 
               className="w-full p-5 bg-surface-container-low rounded-2xl border-none text-xl font-bold"
               required
@@ -1986,7 +2006,7 @@ const AddGoal = ({ onSave, initialData, indices }: { onSave: (g: FinancialGoal) 
             <input 
               type="number" 
               value={formData.currentAmount || ''}
-              onChange={(e) => setFormData({...formData, currentAmount: parseFloat(e.target.value)})}
+              onChange={(e) => setFormData({...formData, currentAmount: roundABNT(parseFloat(e.target.value))})}
               placeholder="0,00" 
               className="w-full p-5 bg-surface-container-low rounded-2xl border-none text-xl font-bold text-brand-primary"
             />
@@ -2692,7 +2712,7 @@ const AddProperty = ({ onSave, initialData, indices }: { onSave: (p: Property) =
             <input 
               type="number" 
               value={formData.value || ''}
-              onChange={(e) => setFormData({...formData, value: parseFloat(e.target.value)})}
+              onChange={(e) => setFormData({...formData, value: roundABNT(parseFloat(e.target.value))})}
               placeholder="R$ 0,00" 
               className="w-full p-5 bg-surface-container-low rounded-2xl border-none text-xl font-bold"
               required
@@ -2723,7 +2743,7 @@ const AddProperty = ({ onSave, initialData, indices }: { onSave: (p: Property) =
               <input 
                 type="number" 
                 value={formData.rentalValue || ''}
-                onChange={(e) => setFormData({...formData, rentalValue: parseFloat(e.target.value)})}
+                onChange={(e) => setFormData({...formData, rentalValue: roundABNT(parseFloat(e.target.value))})}
                 placeholder="R$ 0,00" 
                 className="w-full p-5 bg-surface-container-low rounded-2xl border-none text-xl font-bold text-green-600"
               />
@@ -2823,7 +2843,7 @@ const AddTransaction = ({ onAdd, initialData, goals, creditCards }: { onAdd: (tx
     await onAdd({
       id: initialData?.id || Math.random().toString(36).substr(2, 9),
       title,
-      amount: parseFloat(amount),
+      amount: roundABNT(parseFloat(amount)),
       type,
       categoryId,
       date,
@@ -3014,7 +3034,7 @@ const AddTransaction = ({ onAdd, initialData, goals, creditCards }: { onAdd: (tx
               </div>
               {installments > 1 && amount && (
                 <p className="text-sm text-on-surface-variant">
-                  {installments} parcelas de <span className="font-bold text-brand-primary">R$ {(parseFloat(amount) / installments).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  {installments} parcelas de <span className="font-bold text-brand-primary">R$ {roundABNT(parseFloat(amount) / installments).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                 </p>
               )}
             </div>
@@ -3172,14 +3192,18 @@ const App = () => {
           const card = creditCards.find(c => c.id === tx.cardId);
           if (card) {
             const numInstallments = tx.installments || 1;
-            const installmentAmount = tx.amount / numInstallments;
+            const baseAmount = roundABNT(tx.amount / numInstallments);
+            let remainingTotal = tx.amount;
             
             for (let i = 0; i < numInstallments; i++) {
+              const currentInstallmentAmount = i === numInstallments - 1 ? remainingTotal : baseAmount;
+              remainingTotal = roundABNT(remainingTotal - currentInstallmentAmount);
+              
               const dueDate = calculateInvoiceDate(tx.date, card.closingDay, card.dueDay, i);
               await addDoc(collection(db, 'credit_card_installments'), {
                 cardId: card.id,
                 transactionId: docRef.id,
-                amount: installmentAmount,
+                amount: currentInstallmentAmount,
                 installmentNumber: i + 1,
                 totalInstallments: numInstallments,
                 dueDate,
@@ -3493,7 +3517,7 @@ const App = () => {
 
     creditCardInstallments.forEach(inst => {
       if (inst.dueDate.startsWith(selectedMonthStr)) {
-        groups.set(inst.cardId, (groups.get(inst.cardId) || 0) + inst.amount);
+        groups.set(inst.cardId, roundABNT((groups.get(inst.cardId) || 0) + inst.amount));
       }
     });
     

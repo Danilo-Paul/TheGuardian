@@ -1,0 +1,183 @@
+{
+  "entities": {
+    "Transaction": {
+      "title": "Transaction",
+      "description": "A financial transaction (income or expense)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "amount": { "type": "number" },
+        "type": { "type": "string", "enum": ["income", "expense"] },
+        "categoryId": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "paymentMethod": { "type": "string", "enum": ["dinheiro", "pix", "credito", "debito", "cheque", "cortesia"] },
+        "userId": { "type": "string" }
+      },
+      "required": ["title", "amount", "type", "categoryId", "date", "userId"]
+    },
+    "Property": {
+      "title": "Property",
+      "description": "A real estate asset",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "address": { "type": "string" },
+        "type": { "type": "string" },
+        "value": { "type": "number" },
+        "status": { "type": "string", "enum": ["rented", "vacant", "maintenance"] },
+        "rentalValue": { "type": "number" },
+        "tenantName": { "type": "string" },
+        "correctionIndex": { "type": "string" },
+        "rentDueDate": { "type": "number" },
+        "leaseStart": { "type": "string", "format": "date" },
+        "leaseEnd": { "type": "string", "format": "date" },
+        "userId": { "type": "string" }
+      },
+      "required": ["name", "address", "type", "value", "status", "userId"]
+    },
+    "FinancialGoal": {
+      "title": "FinancialGoal",
+      "description": "A financial goal with projections",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "targetAmount": { "type": "number" },
+        "currentAmount": { "type": "number" },
+        "targetMonths": { "type": "number" },
+        "monthlyContribution": { "type": "number" },
+        "startDate": { "type": "string", "format": "date" },
+        "indexId": { "type": "string" },
+        "indexPercentage": { "type": "number" },
+        "userId": { "type": "string" }
+      },
+      "required": ["title", "targetAmount", "currentAmount", "targetMonths", "monthlyContribution", "startDate", "userId"]
+    },
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "id_user": { "type": "string" },
+        "user": { "type": "string" },
+        "email": { "type": "string" },
+        "senha": { "type": "string" }
+      },
+      "required": ["id_user", "user", "email", "senha"]
+    },
+    "RentalInstallment": {
+      "title": "RentalInstallment",
+      "description": "A monthly rental payment",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "propertyId": { "type": "string" },
+        "dueDate": { "type": "string", "format": "date" },
+        "amount": { "type": "number" },
+        "status": { "type": "string", "enum": ["paid", "pending", "upcoming"] },
+        "paymentDate": { "type": "string", "format": "date" },
+        "userId": { "type": "string" }
+      },
+      "required": ["propertyId", "dueDate", "amount", "status", "userId"]
+    },
+    "PropertyExpense": {
+      "title": "PropertyExpense",
+      "description": "An expense related to a property",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "propertyId": { "type": "string" },
+        "title": { "type": "string" },
+        "amount": { "type": "number" },
+        "date": { "type": "string", "format": "date" },
+        "category": { "type": "string", "enum": ["repair", "tax", "utility", "other"] },
+        "userId": { "type": "string" }
+      },
+      "required": ["propertyId", "title", "amount", "date", "category", "userId"]
+    },
+    "CreditCard": {
+      "title": "CreditCard",
+      "description": "A credit card account",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "closingDay": { "type": "number" },
+        "dueDay": { "type": "number" },
+        "userId": { "type": "string" }
+      },
+      "required": ["name", "closingDay", "dueDay", "userId"]
+    },
+    "CreditCardInstallment": {
+      "title": "CreditCardInstallment",
+      "description": "An installment of a credit card purchase",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "cardId": { "type": "string" },
+        "transactionId": { "type": "string" },
+        "amount": { "type": "number" },
+        "installmentNumber": { "type": "number" },
+        "totalInstallments": { "type": "number" },
+        "dueDate": { "type": "string", "format": "date" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "categoryId": { "type": "string" }
+      },
+      "required": ["cardId", "transactionId", "amount", "installmentNumber", "totalInstallments", "dueDate", "userId", "title", "categoryId"]
+    },
+    "MarketIndex": {
+      "title": "MarketIndex",
+      "description": "A market correction index (e.g., CDI, Selic)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "value": { "type": "number" },
+        "description": { "type": "string" },
+        "userId": { "type": "string" }
+      },
+      "required": ["name", "value", "userId"]
+    }
+  },
+  "firestore": {
+    "/transactions/{transactionId}": {
+      "schema": "Transaction",
+      "description": "User transactions"
+    },
+    "/properties/{propertyId}": {
+      "schema": "Property",
+      "description": "User real estate properties"
+    },
+    "/goals/{goalId}": {
+      "schema": "FinancialGoal",
+      "description": "User financial goals"
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile data"
+    },
+    "/rental_installments/{installmentId}": {
+      "schema": "RentalInstallment",
+      "description": "Rental payments for properties"
+    },
+    "/property_expenses/{expenseId}": {
+      "schema": "PropertyExpense",
+      "description": "Expenses for properties"
+    },
+    "/credit_cards/{cardId}": {
+      "schema": "CreditCard",
+      "description": "User credit cards"
+    },
+    "/credit_card_installments/{installmentId}": {
+      "schema": "CreditCardInstallment",
+      "description": "Installments for credit card purchases"
+    },
+    "/market_indices/{indexId}": {
+      "schema": "MarketIndex",
+      "description": "User defined market indices"
+    }
+  }
+}

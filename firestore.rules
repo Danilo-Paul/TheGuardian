@@ -1,0 +1,257 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: transactions
+    // Document ID: {transactionId}
+    // Fields:
+    //   - id: string (required)
+    //   - title: string (required, size < 100)
+    //   - amount: number (required, > 0)
+    //   - type: string (required, in ['income', 'expense'])
+    //   - categoryId: string (required)
+    //   - date: string (required, ISO 8601)
+    //   - userId: string (required, matches auth.uid)
+    //
+    // Collection: properties
+    // Document ID: {propertyId}
+    // Fields:
+    //   - id: string (required)
+    //   - name: string (required, size < 100)
+    //   - address: string (required, size < 200)
+    //   - type: string (required)
+    //   - value: number (required, > 0)
+    //   - status: string (required, in ['rented', 'vacant', 'maintenance'])
+    //   - rentalValue: number (optional, > 0)
+    //   - tenantName: string (optional, size < 100)
+    //   - correctionIndex: string (optional)
+    //   - rentDueDate: number (optional, 1-31)
+    //   - userId: string (required, matches auth.uid)
+    //
+    // Collection: goals
+    // Document ID: {goalId}
+    // Fields:
+    //   - id: string (required)
+    //   - title: string (required, size < 100)
+    //   - targetAmount: number (required, > 0)
+    //   - currentAmount: number (required, >= 0)
+    //   - deadlineMonths: number (required, > 0)
+    //   - userId: string (required, matches auth.uid)
+    //
+    // Collection: users
+    // Document ID: {userId}
+    // Fields:
+    //   - id_user: string (required, matches auth.uid)
+    //   - user: string (required, username)
+    //   - email: string (required, email)
+    //   - senha: string (required, hashed password)
+    //   - createdAt: string (required, ISO 8601)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.userId;
+    }
+
+    function uidUnchanged() {
+      return !('userId' in request.resource.data) ||
+        request.resource.data.userId == request.auth.uid;
+    }
+
+    function uidNotModified() {
+      return !('userId' in request.resource.data) ||
+        request.resource.data.userId == resource.data.userId;
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function isValidEmail(email) {
+      return email is string &&
+        email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidDateString(dateStr) {
+      return dateStr is string &&
+        (dateStr.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z?$") ||
+         dateStr.matches("^\\d{4}-\\d{2}-\\d{2}$"));
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidTransaction(data) {
+      return data.title is string && data.title.size() > 0 && data.title.size() < 100 &&
+             data.amount is number && data.amount > 0 &&
+             data.type in ['income', 'expense'] &&
+             data.categoryId is string &&
+             isValidDateString(data.date) &&
+             (!('paymentMethod' in data) || data.paymentMethod in ['dinheiro', 'pix', 'credito', 'debito', 'cheque', 'cortesia']) &&
+             data.userId == request.auth.uid;
+    }
+
+    function isValidProperty(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.address is string && data.address.size() > 0 && data.address.size() < 200 &&
+             data.type is string &&
+             data.value is number && data.value > 0 &&
+             data.status in ['rented', 'vacant', 'maintenance'] &&
+             (!('leaseStart' in data) || isValidDateString(data.leaseStart)) &&
+             (!('leaseEnd' in data) || isValidDateString(data.leaseEnd)) &&
+             data.userId == request.auth.uid;
+    }
+
+    function isValidGoal(data) {
+      return data.title is string && data.title.size() > 0 && data.title.size() < 100 &&
+             data.targetAmount is number && data.targetAmount > 0 &&
+             data.currentAmount is number && data.currentAmount >= 0 &&
+             data.targetMonths is number && data.targetMonths > 0 &&
+             data.monthlyContribution is number &&
+             isValidDateString(data.startDate) &&
+             (!('indexId' in data) || (data.indexId is string || data.indexId == null)) &&
+             (!('indexPercentage' in data) || (data.indexPercentage is number || data.indexPercentage == null)) &&
+             data.userId == request.auth.uid;
+    }
+
+    function isValidUser(data) {
+      return data.id_user == request.auth.uid &&
+             data.user is string && data.user.size() > 0 && data.user.size() < 100 &&
+             isValidEmail(data.email) &&
+             data.senha is string && data.senha.size() > 0 &&
+             isValidDateString(data.createdAt);
+    }
+
+    function isValidInstallment(data) {
+      return data.propertyId is string &&
+             isValidDateString(data.dueDate) &&
+             data.amount is number && data.amount > 0 &&
+             data.status in ['paid', 'pending', 'upcoming'] &&
+             (!('paymentDate' in data) || isValidDateString(data.paymentDate)) &&
+             data.userId == request.auth.uid;
+    }
+
+    function isValidPropertyExpense(data) {
+      return data.propertyId is string &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 100 &&
+             data.amount is number && data.amount > 0 &&
+             isValidDateString(data.date) &&
+             data.category in ['repair', 'tax', 'utility', 'other'] &&
+             data.userId == request.auth.uid;
+    }
+
+    function isValidCreditCard(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.closingDay is number && data.closingDay >= 1 && data.closingDay <= 31 &&
+             data.dueDay is number && data.dueDay >= 1 && data.dueDay <= 31 &&
+             data.userId == request.auth.uid;
+    }
+
+    function isValidCreditCardInstallment(data) {
+      return data.cardId is string &&
+             data.transactionId is string &&
+             data.amount is number && data.amount > 0 &&
+             data.installmentNumber is number && data.installmentNumber > 0 &&
+             data.totalInstallments is number && data.totalInstallments > 0 &&
+             isValidDateString(data.dueDate) &&
+             data.title is string &&
+             data.categoryId is string &&
+             data.userId == request.auth.uid;
+    }
+
+    function isValidMarketIndex(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.value is number &&
+             (!('description' in data) || data.description is string) &&
+             data.userId == request.auth.uid;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /transactions/{transactionId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidTransaction(request.resource.data) && uidUnchanged();
+      allow update: if isDocOwner() && isValidTransaction(request.resource.data) && uidNotModified();
+      allow delete: if isDocOwner();
+    }
+
+    match /properties/{propertyId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidProperty(request.resource.data) && uidUnchanged();
+      allow update: if isDocOwner() && isValidProperty(request.resource.data) && uidNotModified();
+      allow delete: if isDocOwner();
+    }
+
+    match /goals/{goalId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidGoal(request.resource.data) && uidUnchanged();
+      allow update: if isDocOwner() && isValidGoal(request.resource.data) && uidNotModified();
+      allow delete: if isDocOwner();
+    }
+
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && isValidUser(request.resource.data);
+      allow delete: if false;
+    }
+
+    match /rental_installments/{installmentId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidInstallment(request.resource.data) && uidUnchanged();
+      allow update: if isDocOwner() && isValidInstallment(request.resource.data) && uidNotModified();
+      allow delete: if isDocOwner();
+    }
+
+    match /property_expenses/{expenseId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidPropertyExpense(request.resource.data) && uidUnchanged();
+      allow update: if isDocOwner() && isValidPropertyExpense(request.resource.data) && uidNotModified();
+      allow delete: if isDocOwner();
+    }
+
+    match /credit_cards/{cardId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidCreditCard(request.resource.data) && uidUnchanged();
+      allow update: if isDocOwner() && isValidCreditCard(request.resource.data) && uidNotModified();
+      allow delete: if isDocOwner();
+    }
+
+    match /credit_card_installments/{installmentId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidCreditCardInstallment(request.resource.data) && uidUnchanged();
+      allow update: if isDocOwner() && isValidCreditCardInstallment(request.resource.data) && uidNotModified();
+      allow delete: if isDocOwner();
+    }
+
+    match /market_indices/{indexId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidMarketIndex(request.resource.data) && uidUnchanged();
+      allow update: if isDocOwner() && isValidMarketIndex(request.resource.data) && uidNotModified();
+      allow delete: if isDocOwner();
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

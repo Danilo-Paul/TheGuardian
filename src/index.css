@@ -1,0 +1,56 @@
+@import url('https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,100..900;1,100..900&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Public Sans", ui-sans-serif, system-ui, sans-serif;
+  
+  --color-surface: #fcf9f4;
+  --color-surface-container-low: #f6f3ee;
+  --color-surface-container-lowest: #ffffff;
+  --color-primary-fixed: #dde1ff;
+  --color-on-surface: #1c1c19;
+  --color-on-surface-variant: #4b4b44;
+  --color-outline: #7b7b71;
+  
+  --color-brand-primary: #003366;
+  --color-brand-secondary: #5c6bc0;
+  
+  --shadow-ambient: 0px 12px 32px rgba(28, 28, 25, 0.06);
+}
+
+@layer base {
+  body {
+    @apply bg-surface text-on-surface font-sans antialiased;
+    font-size: 16px;
+  }
+}
+
+@layer utilities {
+  .text-display-large {
+    @apply text-5xl font-medium tracking-tight leading-tight;
+  }
+  .text-display-medium {
+    @apply text-4xl font-medium tracking-tight leading-tight;
+  }
+  .text-display-small {
+    @apply text-3xl font-medium tracking-tight leading-tight;
+  }
+  .text-headline-large {
+    @apply text-2xl font-medium tracking-tight;
+  }
+  .text-headline-medium {
+    @apply text-xl font-medium tracking-tight;
+  }
+  .text-headline-small {
+    @apply text-lg font-medium tracking-tight;
+  }
+  .text-body-large {
+    @apply text-base leading-relaxed;
+  }
+  .text-body-medium {
+    @apply text-sm leading-relaxed;
+  }
+  .text-body-small {
+    @apply text-xs leading-relaxed;
+  }
+}
